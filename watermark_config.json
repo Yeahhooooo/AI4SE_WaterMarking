@@ -1,0 +1,21 @@
+{
+    "watermark_type": "text",
+    "text_content": "",
+    "text_color": [
+        255,
+        255,
+        255
+    ],
+    "text_font": "Arial",
+    "text_font_size": 48,
+    "text_opacity": 0.35,
+    "image_watermark_path": "/Users/huayecai/Desktop/test02.png",
+    "image_opacity": 0.5,
+    "image_scale": 1.0,
+    "position": "br",
+    "rotation": 0,
+    "output_naming_rule": "suffix",
+    "output_prefix": "wm_",
+    "output_suffix": "",
+    "jpeg_quality": 95
+}
