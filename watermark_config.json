@@ -18,5 +18,7 @@
     "output_prefix": "wm_c",
     "output_suffix": "_watermark",
     "output_directory": "/Users/huayecai/Desktop/bach_01/testFolder",
-    "jpeg_quality": 100
+    "jpeg_quality": 100,
+    "last_template_name": null,
+    "auto_load_last": true
 }
