@@ -3,9 +3,9 @@ import json
 import threading
 import queue
 import time
+import os
 from tkinter import colorchooser, Menu, filedialog, messagebox
 from PIL import Image, ImageTk, ImageDraw, ImageFont
-import os
 
 # Set appearance mode and default color theme
 ctk.set_appearance_mode("System")  # Modes: "System" (default), "Dark", "Light"
@@ -35,6 +35,11 @@ class WatermarkApp(ctk.CTk):
         self.jpeg_quality = ctk.IntVar(value=95)
         self.config_file = "watermark_config.json"
         self._debounce_job = None # For debouncing UI updates
+        
+        # --- 模板管理系统 ---
+        self.templates_dir = "templates"
+        self.current_template_name = None
+        self.template_extension = ".json"
         
         # --- 输出路径设置 ---
         self.output_directory = ctk.StringVar(value="")  # 输出目录路径
@@ -283,11 +288,52 @@ class WatermarkApp(ctk.CTk):
         ctk.CTkSlider(quality_frame, from_=1, to=100, variable=self.jpeg_quality).pack(side="left", fill="x", expand=True, padx=5)
         ctk.CTkLabel(quality_frame, textvariable=self.jpeg_quality, width=30).pack(side="left")
 
+        # --- Template Management ---
+        self.template_frame = ctk.CTkFrame(self.control_frame)
+        self.template_frame.pack(pady=10, padx=10, fill="x")
+        self.template_label = ctk.CTkLabel(self.template_frame, text="水印模板", font=ctk.CTkFont(weight="bold"))
+        self.template_label.pack(pady=5)
+
+        # Template selection
+        template_select_frame = ctk.CTkFrame(self.template_frame)
+        template_select_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(template_select_frame, text="选择模板:").pack(side="left", padx=5)
+        self.template_combobox = ctk.CTkComboBox(template_select_frame, values=["<无模板>"], 
+                                               command=self.load_template_by_name, state="readonly")
+        self.template_combobox.pack(side="left", fill="x", expand=True, padx=5)
+        self.template_combobox.set("<无模板>")
+
+        # Template management buttons
+        template_buttons_frame = ctk.CTkFrame(self.template_frame)
+        template_buttons_frame.pack(fill="x", pady=5)
+        
+        self.save_template_btn = ctk.CTkButton(template_buttons_frame, text="保存模板", 
+                                             command=self.save_new_template, width=80)
+        self.save_template_btn.pack(side="left", padx=2, expand=True, fill="x")
+        
+        self.rename_template_btn = ctk.CTkButton(template_buttons_frame, text="重命名", 
+                                               command=self.rename_template, width=80)
+        self.rename_template_btn.pack(side="left", padx=2, expand=True, fill="x")
+        
+        self.delete_template_btn = ctk.CTkButton(template_buttons_frame, text="删除", 
+                                               command=self.delete_template, width=80)
+        self.delete_template_btn.pack(side="left", padx=2, expand=True, fill="x")
+
+        # Auto-load settings
+        auto_load_frame = ctk.CTkFrame(self.template_frame)
+        auto_load_frame.pack(fill="x", pady=5)
+        self.auto_load_last = ctk.BooleanVar(value=True)
+        self.auto_load_checkbox = ctk.CTkCheckBox(auto_load_frame, text="启动时自动加载上次设置", 
+                                                variable=self.auto_load_last)
+        self.auto_load_checkbox.pack(side="left", padx=5)
+
         # Export Button
         self.export_button = ctk.CTkButton(self.control_frame, text="开始处理并导出", command=self.process_and_export_images)
         self.export_button.pack(pady=20, padx=10, fill="x")
 
+        self.init_template_system() # Initialize template system
         self.load_settings(show_message=False) # Auto-load settings on startup
+        self.load_last_settings_or_default_template() # Auto-load last template if enabled
         self.on_watermark_type_changed() # Initialize UI visibility based on default type
         self.protocol("WM_DELETE_WINDOW", self.quit_app) # Save settings on close
 
@@ -1703,6 +1749,9 @@ class WatermarkApp(ctk.CTk):
             "output_suffix": self.output_naming_suffix.get(),
             "output_directory": self.output_directory.get(),  # 添加输出路径
             "jpeg_quality": self.jpeg_quality.get(),
+            # 添加模板相关设置
+            "last_template_name": self.current_template_name,
+            "auto_load_last": self.auto_load_last.get(),
         }
         return settings
 
@@ -1741,6 +1790,10 @@ class WatermarkApp(ctk.CTk):
         self.output_directory.set(settings.get("output_directory", ""))
         self.update_output_path_display()  # 更新路径显示
         self.jpeg_quality.set(settings.get("jpeg_quality", 95))
+        
+        # 加载模板相关设置
+        if hasattr(self, 'auto_load_last'):
+            self.auto_load_last.set(settings.get("auto_load_last", True))
 
         self.on_watermark_type_changed() # Update UI visibility based on loaded type
 
@@ -1768,6 +1821,246 @@ class WatermarkApp(ctk.CTk):
         except Exception as e:
             if show_message:
                 messagebox.showerror("错误", f"无法加载设置: {e}")
+
+    # ==================== 模板管理系统 ====================
+    
+    def init_template_system(self):
+        """初始化模板管理系统"""
+        # 创建模板文件夹
+        if not os.path.exists(self.templates_dir):
+            os.makedirs(self.templates_dir)
+        
+        # 刷新模板列表
+        self.refresh_template_list()
+        
+    def refresh_template_list(self):
+        """刷新模板下拉菜单"""
+        template_files = []
+        if os.path.exists(self.templates_dir):
+            for file in os.listdir(self.templates_dir):
+                if file.endswith(self.template_extension):
+                    template_name = file[:-len(self.template_extension)]
+                    template_files.append(template_name)
+        
+        # 排序模板名称
+        template_files.sort()
+        
+        # 更新下拉菜单
+        if template_files:
+            self.template_combobox.configure(values=["<无模板>"] + template_files)
+        else:
+            self.template_combobox.configure(values=["<无模板>"])
+            
+        # 如果当前选择的模板不存在了，重置为无模板
+        current_selection = self.template_combobox.get()
+        if current_selection not in ["<无模板>"] + template_files:
+            self.template_combobox.set("<无模板>")
+            self.current_template_name = None
+    
+    def get_template_path(self, template_name):
+        """获取模板文件的完整路径"""
+        return os.path.join(self.templates_dir, f"{template_name}{self.template_extension}")
+    
+    def save_new_template(self):
+        """保存新模板"""
+        # 获取模板名称
+        template_name = ctk.CTkInputDialog(
+            text="请输入模板名称:", 
+            title="保存水印模板"
+        ).get_input()
+        
+        if not template_name:
+            return
+            
+        # 验证模板名称
+        if not self.validate_template_name(template_name):
+            messagebox.showerror("错误", "模板名称不能包含特殊字符或为空。")
+            return
+            
+        template_path = self.get_template_path(template_name)
+        
+        # 检查是否覆盖现有模板
+        if os.path.exists(template_path):
+            result = messagebox.askyesno("确认覆盖", f"模板 '{template_name}' 已存在。是否覆盖？")
+            if not result:
+                return
+        
+        # 保存模板
+        try:
+            settings = self.get_settings_as_dict()
+            # 添加模板元数据
+            settings["template_metadata"] = {
+                "name": template_name,
+                "created_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "version": "1.0"
+            }
+            
+            with open(template_path, "w", encoding="utf-8") as f:
+                json.dump(settings, f, indent=4, ensure_ascii=False)
+                
+            self.current_template_name = template_name
+            self.refresh_template_list()
+            self.template_combobox.set(template_name)
+            
+            messagebox.showinfo("成功", f"模板 '{template_name}' 已保存。")
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"保存模板失败: {e}")
+    
+    def load_template_by_name(self, template_name):
+        """根据名称加载模板"""
+        if template_name == "<无模板>":
+            self.current_template_name = None
+            return
+            
+        template_path = self.get_template_path(template_name)
+        
+        if not os.path.exists(template_path):
+            messagebox.showerror("错误", f"模板文件不存在: {template_path}")
+            self.refresh_template_list()
+            return
+            
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+                
+            self.apply_settings_from_dict(settings)
+            self.current_template_name = template_name
+            
+            # 清除自定义位置，使用模板中的预设位置
+            self.custom_watermark_position = None
+            self.watermark_bounds = None
+            
+            # 更新预览
+            self.debounced_update_preview()
+            
+            messagebox.showinfo("成功", f"已加载模板 '{template_name}'。")
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"加载模板失败: {e}")
+            self.current_template_name = None
+            self.template_combobox.set("<无模板>")
+    
+    def rename_template(self):
+        """重命名当前选中的模板"""
+        current_template = self.template_combobox.get()
+        
+        if current_template == "<无模板>":
+            messagebox.showwarning("提示", "请先选择要重命名的模板。")
+            return
+            
+        new_name = ctk.CTkInputDialog(
+            text=f"请输入新的模板名称:", 
+            title="重命名模板"
+        ).get_input()
+        
+        if not new_name:
+            return
+            
+        if not self.validate_template_name(new_name):
+            messagebox.showerror("错误", "模板名称不能包含特殊字符或为空。")
+            return
+            
+        if new_name == current_template:
+            return  # 名称没有变化
+            
+        old_path = self.get_template_path(current_template)
+        new_path = self.get_template_path(new_name)
+        
+        # 检查新名称是否已存在
+        if os.path.exists(new_path):
+            messagebox.showerror("错误", f"模板名称 '{new_name}' 已存在。")
+            return
+            
+        try:
+            # 重命名文件
+            os.rename(old_path, new_path)
+            
+            # 更新模板内部的元数据
+            with open(new_path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+            
+            if "template_metadata" in settings:
+                settings["template_metadata"]["name"] = new_name
+                settings["template_metadata"]["modified_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                
+            with open(new_path, "w", encoding="utf-8") as f:
+                json.dump(settings, f, indent=4, ensure_ascii=False)
+            
+            self.current_template_name = new_name
+            self.refresh_template_list()
+            self.template_combobox.set(new_name)
+            
+            messagebox.showinfo("成功", f"模板已重命名为 '{new_name}'。")
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"重命名模板失败: {e}")
+    
+    def delete_template(self):
+        """删除当前选中的模板"""
+        current_template = self.template_combobox.get()
+        
+        if current_template == "<无模板>":
+            messagebox.showwarning("提示", "请先选择要删除的模板。")
+            return
+            
+        result = messagebox.askyesno("确认删除", f"确定要删除模板 '{current_template}' 吗？此操作不可撤销。")
+        
+        if not result:
+            return
+            
+        template_path = self.get_template_path(current_template)
+        
+        try:
+            os.remove(template_path)
+            
+            self.current_template_name = None
+            self.refresh_template_list()
+            self.template_combobox.set("<无模板>")
+            
+            messagebox.showinfo("成功", f"模板 '{current_template}' 已删除。")
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"删除模板失败: {e}")
+    
+    def validate_template_name(self, name):
+        """验证模板名称是否有效"""
+        if not name or not name.strip():
+            return False
+            
+        # 检查是否包含不允许的字符
+        invalid_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
+        for char in invalid_chars:
+            if char in name:
+                return False
+                
+        return True
+    
+    def load_last_settings_or_default_template(self):
+        """启动时自动加载上次设置或默认模板"""
+        if not self.auto_load_last.get():
+            return
+            
+        # 首先尝试加载上次的设置
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, "r") as f:
+                    settings = json.load(f)
+                    
+                # 检查是否有上次使用的模板
+                last_template = settings.get("last_template_name")
+                if last_template and last_template != "<无模板>":
+                    template_path = self.get_template_path(last_template)
+                    if os.path.exists(template_path):
+                        self.template_combobox.set(last_template)
+                        self.load_template_by_name(last_template)
+                        return
+                        
+                # 如果没有有效的模板，加载基本设置
+                self.apply_settings_from_dict(settings)
+                
+        except Exception as e:
+            print(f"Failed to load last settings: {e}")
 
 if __name__ == "__main__":
     app = WatermarkApp()

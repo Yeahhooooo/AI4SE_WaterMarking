@@ -1,0 +1,29 @@
+{
+    "watermark_type": "text",
+    "text_content": "testb",
+    "text_color": [
+        227,
+        138,
+        255
+    ],
+    "text_font": "Courier New",
+    "text_font_size": 30,
+    "text_opacity": 0.56,
+    "image_watermark_path": "/Users/huayecai/Desktop/test02.png",
+    "image_opacity": 1.0,
+    "image_scale": 0.25,
+    "position": "tr",
+    "rotation": 165,
+    "output_naming_rule": "prefix",
+    "output_prefix": "wm_c",
+    "output_suffix": "_watermark",
+    "output_directory": "/Users/huayecai/Desktop/bach_01/testFolder",
+    "jpeg_quality": 100,
+    "last_template_name": null,
+    "auto_load_last": true,
+    "template_metadata": {
+        "name": "Temp01",
+        "created_time": "2025-10-06 20:21:34",
+        "version": "1.0"
+    }
+}
