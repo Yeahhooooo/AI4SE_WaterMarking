@@ -4,6 +4,7 @@ import threading
 import queue
 import time
 import os
+import sys
 from tkinter import colorchooser, Menu, filedialog, messagebox
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
@@ -11,8 +12,40 @@ from PIL import Image, ImageTk, ImageDraw, ImageFont
 ctk.set_appearance_mode("System")  # Modes: "System" (default), "Dark", "Light"
 ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
 
+def get_app_path():
+    """获取应用程序的正确路径，兼容开发环境和打包环境"""
+    if getattr(sys, 'frozen', False):
+        # 如果是打包后的应用
+        if sys.platform == 'darwin':
+            # macOS .app bundle
+            return os.path.dirname(sys.executable)
+        else:
+            # Windows或Linux
+            return os.path.dirname(sys.executable)
+    else:
+        # 开发环境
+        return os.path.dirname(os.path.abspath(__file__))
+
+def setup_app_directories():
+    """设置应用程序的工作目录和资源路径"""
+    app_path = get_app_path()
+    
+    # 切换到应用程序目录
+    os.chdir(app_path)
+    
+    # 确保必要的目录存在
+    if not os.path.exists('templates'):
+        os.makedirs('templates')
+    
+    return app_path
+
 class WatermarkApp(ctk.CTk):
     def __init__(self):
+        # 调试信息
+        print(f"App starting in directory: {os.getcwd()}")
+        print(f"Current working directory contents: {os.listdir('.')}")
+        print(f"Templates directory exists: {os.path.exists('templates')}")
+        
         super().__init__()
         self.title("图片水印应用")
         self.geometry("1200x800")
@@ -2063,5 +2096,26 @@ class WatermarkApp(ctk.CTk):
             print(f"Failed to load last settings: {e}")
 
 if __name__ == "__main__":
-    app = WatermarkApp()
-    app.mainloop()
+    try:
+        # 设置应用程序路径和工作目录
+        setup_app_directories()
+        
+        # 创建并运行应用
+        app = WatermarkApp()
+        app.mainloop()
+    except Exception as e:
+        # 如果应用启动失败，显示错误信息
+        print(f"Application startup failed: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # 尝试显示错误对话框
+        try:
+            import tkinter as tk
+            from tkinter import messagebox
+            root = tk.Tk()
+            root.withdraw()  # 隐藏主窗口
+            messagebox.showerror("启动错误", f"应用启动失败:\n{e}\n\n请检查控制台输出获取详细信息。")
+            root.destroy()
+        except:
+            pass  # 如果连错误对话框都无法显示，就静默失败
