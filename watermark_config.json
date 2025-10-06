@@ -15,9 +15,9 @@
     "position": "tr",
     "rotation": 165,
     "output_naming_rule": "prefix",
-    "output_prefix": "wm_c",
+    "output_prefix": "wm_casd",
     "output_suffix": "_watermark",
-    "output_directory": "/Users/huayecai/Desktop/bach_01/testFolder",
+    "output_directory": "/Users/huayecai/Desktop/bach_01",
     "jpeg_quality": 100,
     "last_template_name": null,
     "auto_load_last": true

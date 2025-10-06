@@ -32,25 +32,47 @@ def main():
         '--onedir',    # 创建单个文件夹
         '--clean',     # 清理临时文件
         '--noconfirm', # 不确认覆盖
+        '--noupx',     # 禁用UPX压缩，避免兼容性问题
         # 图标文件（如果有的话）
         # '--icon=icon.icns',
         # 额外的数据文件
         '--add-data=watermark_config.json:.',
+        '--add-data=templates:templates',  # 包含模板文件夹
         # 隐藏导入（确保所有依赖都被包含）
         '--hidden-import=PIL._tkinter_finder',
         '--hidden-import=customtkinter',
+        '--hidden-import=customtkinter.windows',
+        '--hidden-import=customtkinter.widgets',
+        '--hidden-import=customtkinter.draw_engine',
+        '--hidden-import=customtkinter.appearance_mode',
+        '--hidden-import=customtkinter.theme_manager',
+        '--hidden-import=customtkinter.settings',
         '--hidden-import=tkinter',
+        '--hidden-import=tkinter.filedialog',
+        '--hidden-import=tkinter.messagebox',
+        '--hidden-import=tkinter.colorchooser',
         '--hidden-import=PIL',
         '--hidden-import=PIL.Image',
         '--hidden-import=PIL.ImageTk',
         '--hidden-import=PIL.ImageFont',
         '--hidden-import=PIL.ImageDraw',
+        '--hidden-import=PIL.ImageFile',
+        '--hidden-import=PIL.PngImagePlugin',
+        '--hidden-import=PIL.JpegImagePlugin',
+        '--hidden-import=PIL.BmpImagePlugin',
+        '--hidden-import=PIL.TiffImagePlugin',
         '--hidden-import=queue',
         '--hidden-import=threading',
         '--hidden-import=json',
         '--hidden-import=os',
+        '--hidden-import=time',
+        '--hidden-import=darkdetect',
         '--collect-all=customtkinter',
         '--collect-all=PIL',
+        '--collect-all=darkdetect',
+        # 增加一些系统路径
+        '--collect-submodules=customtkinter',
+        '--collect-submodules=PIL',
         # 主脚本
         'src/main.py'
     ]
